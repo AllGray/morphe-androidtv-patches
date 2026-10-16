@@ -1,3 +1,10 @@
+# [1.41.0](https://github.com/ajstrick81/morphe-androidtv-patches/compare/v1.40.6...v1.41.0) (2026-10-16)
+
+
+### Features
+
+* **f1tv:** add Unlock UHD (4K) patch ([#245](https://github.com/ajstrick81/morphe-androidtv-patches/issues/245)) ([3d78305](https://github.com/ajstrick81/morphe-androidtv-patches/commit/3d78305dc818ee41c46d27c96c67ef3a1feb5c95)), closes [#243](https://github.com/ajstrick81/morphe-androidtv-patches/issues/243)
+
 ## [1.40.6](https://github.com/ajstrick81/morphe-androidtv-patches/compare/v1.40.5...v1.40.6) (2026-10-15)
 
 
