@@ -183,8 +183,9 @@ function patchMASTER(rs){ if(masterDone)return;
 // as soon as both edits land. Mirrors fastHH.
 var _fastMn=0;
 function fastMASTER(){ if(masterDone)return; if(hhYield()){ setTimeout(fastMASTER,250); return; } _fastMn++;
-  try{ var _rm=rwRanges(); patchMASTER(_rm); if(!masterDone) patchMASTERw(_rm); }catch(e){}
-  if(masterDone){ L('fastMASTER: applied by pass '+_fastMn+(mwDone?' (wildcard fallback)':'')); return; }
+  try{ if(!(v3AdvDone&&v3MasterDone)) patchV3(jsRanges()); }catch(e){}   // #212 re-minify re-anchor (big-region aware), runs first
+  try{ if(!masterDone){ var _rm=rwRanges(); patchMASTER(_rm); if(!masterDone) patchMASTERw(_rm); } }catch(e){}
+  if(masterDone){ L('fastMASTER: applied by pass '+_fastMn+(v3MasterDone?' (V3)':(mwDone?' (wildcard fallback)':''))); return; }
   if(_fastMn<500&&(Date.now()-T0)<60000) setTimeout(fastMASTER, 120);   // ~60s of tight scanning (wall-clock bound: a pass takes seconds on a TV)
 }
 // ---------- (MASTERw) wildcard-tolerant MASTER fallback (2026-09-13, experimental — issue #166) --
@@ -248,6 +249,95 @@ function patchMASTERw(rs){ if(masterDone||mwDone)return;
   // M1 found, M2 not -> CRASH-SAFE: write nothing; dump the region after M1 once for re-anchor.
   if(!mwDumped){ mwDumped=true; var ctx=null; try{ctx=m1addr.sub(24).readCString(700);}catch(e){}
     L('MASTERw M2-MISS (no write, crash-safe) dump@'+m1addr+' cond="'+String.fromCharCode(m1cc)+'" ctx='+JSON.stringify(ctx)); }
+}
+// ---------- (V3) #212/#232 re-minify re-anchor: getAdMetadata refactored, big-region aware ----------
+// COST + REACH (measured on .210, 2026-10-06 + re-confirmed 2026-10-17): the JS source sits in ONE anon
+// rw- region of ~201MB that every `size>128MB continue` scanner skips (=> the kill landing or not
+// depended on heap size: the "title-dependent" #212 pattern), and each full-memory pattern scan costs
+// ~1.7s. So V3 does ONE fixed-string scan ('.adverts.adBreaks', present at both sites) over anonymous
+// memory only (big regions chunked; ART heap, GPU/JIT/file mappings skipped) and classifies each hit by
+// direct reads. The bare token '.adverts.adBreaks' is too common (a first pass took ~35s on .210), so ADV
+// uses the selective '.adverts.adBreaks)?void 0:' and M2 '.adverts.adBreaks.length)return;' — searched
+// FIRST only inside the region holding the ADV site (both live in the same appboot source, ~1.1MB apart),
+// whole anon memory as fallback. The M1 flip (if(cond)->if(0)) is GATED on the ADV empty landing first, so
+// the else path always yields a valid [] (no under-enriched pod -> no native crash). Body re-anchored from
+// an on-device read-only dump of the live 13.0.1-25028 getAdMetadata (docs/issue-232-getadmetadata-body-25028.log).
+var v3AdvDone=false, v3MasterDone=false, v3Waited=false, v3M2Done=false, _v3last=0;
+var v3M2Site=null, v3M1Site=null, v3M1Cond=null, v3FnArg=null, v3AccVar=null;
+var ART_HEAP_BASE='0x12c00000';   // 32-bit ART main space base — Java heap, never holds the JS source
+function jsRanges(){ var out=[], CH=64*1024*1024, OV=4096;
+  Process.enumerateRanges('rw-').forEach(function(r){
+    if(r.file||r.size<4096||r.base.toString()===ART_HEAP_BASE) return;
+    if(r.size<=CH+OV){ out.push(r); return; }
+    for(var off=0; off<r.size; off+=CH) out.push({base:r.base.add(off), size:Math.min(CH+OV, r.size-off)});
+  });
+  return out; }
+var V3_ADV_TOKEN=pat('.adverts.adBreaks)?void 0:'), V3_M2_TOKEN=pat('.adverts.adBreaks.length)return;'), v3AdvSite=null, _v3n=0;
+var V3_ADV_RE=/^\.adverts\.adBreaks\)\?void 0:([A-Za-z_$])\.map\(function\([A-Za-z_$],[A-Za-z_$]\)\{var [A-Za-z_$]=[A-Za-z_$]\.normalize\(/;
+var V3_M2_RE=/^!([A-Za-z_$])\.adverts\|\|!\1\.adverts\.adBreaks\.length\)return;([A-Za-z_$])=\1\.adverts\.adBreaks\.map\(/;
+var V3_M1_RE=/^getAds\(([A-Za-z_$])\);if\(([A-Za-z_$])\)\{var /;   // [1]=getAds arg, [2]=if cond
+function rd(a,n){ try{ return a.readCString(n); }catch(e){ return null; } }
+function v3Find(rs, tok, test){ for(var i=0;i<rs.length;i++){ var h; try{ h=Memory.scanSync(rs[i].base, rs[i].size, tok); }catch(e){ continue; }
+    for(var j=0;j<h.length;j++){ var a=test(h[j].address); if(a) return a; } } return null; }
+function chunked(r){ var out=[], CH=64*1024*1024, OV=4096; if(r.size<=CH+OV) return [r];
+  for(var off=0; off<r.size; off+=CH) out.push({base:r.base.add(off), size:Math.min(CH+OV, r.size-off)}); return out; }
+// Audit-hardened (Codex 2026-10-17): all sites are located ONCE and CACHED (M2's search token is
+// destroyed by its own write, so a retry can't re-find it); writes commit M2 FIRST (syntactically valid,
+// does not force the else path) then M1 LAST (the commit byte); every *Done flag is set ONLY after an
+// exact read-back; M1 requires its getAds() arg to equal the M2 function arg; scans are throttled ~1/s.
+function patchV3(rs){ if(masterDone||(v3AdvDone&&v3MasterDone)) return;
+  if(Date.now()-_v3last<900) return; _v3last=Date.now(); _v3n++;
+  // --- locate + cache the ADV site ---
+  if(!v3AdvSite){ v3AdvSite=v3Find(rs, V3_ADV_TOKEN, function(a){ var c=rd(a,90); return (c&&V3_ADV_RE.test(c))?a:null; }); }
+  // --- locate + cache the M2 site, its fn arg / accumulator var, and the M1 guard (before M2 is written) ---
+  if(v3AdvSite&&!v3M2Site&&!v3MasterDone){
+    var near=null; try{ near=Process.findRangeByAddress(v3AdvSite); }catch(e){}
+    var m2test=function(a){ var b=a.sub(14), c=rd(b,90); return (c&&V3_M2_RE.test(c))?b:null; };
+    var cand=null;
+    if(near) cand=v3Find(chunked(near), V3_M2_TOKEN, m2test);
+    if(!cand&&_v3n%10===0) cand=v3Find(rs, V3_M2_TOKEN, m2test);
+    if(cand){ var m=V3_M2_RE.exec(rd(cand,90)||'');
+      if(m){ v3FnArg=m[1]; v3AccVar=m[2];
+        // M1 guard sits just before the else-block, same function (<=2KB back); REQUIRE getAds arg == fn arg
+        var win=cand.sub(2048), wh=[]; try{ wh=Memory.scanSync(win,2048,pat('getAds(')); }catch(e){}
+        for(var k=wh.length-1;k>=0&&!v3M1Site;k--){ var c=rd(wh[k].address,24), mm=c&&V3_M1_RE.exec(c);
+          if(mm&&mm[1]===v3FnArg){ v3M1Site=wh[k].address.add(13); v3M1Cond=mm[2]; } }
+        if(v3M1Site) v3M2Site=cand; else L('V3: M2 found @'+cand+' but no matching getAds('+v3FnArg+') guard near — waiting'); }
+    }
+  }
+  // --- ADV write: empty adverts.adBreaks at source. Mark done ONLY on verified read-back ---
+  if(v3AdvSite&&!v3AdvDone&&!advDone&&!advwDone){
+    var t=v3AdvSite.add(19), old=rd(t,8);
+    if(old==='[]:[]   '){ v3AdvDone=true; advwDone=true; L('PATCH V3-ADV: already emptied @'+t+' — recognized (prior write, flag recovered)'); }
+    else if(old&&/^void 0:[A-Za-z_$]$/.test(old)){ Memory.protect(t,8,'rw-'); t.writeByteArray(bytesOf('[]:[]   '));
+      var rb=rd(t,8);
+      if(rb==='[]:[]   '){ v3AdvDone=true; advwDone=true; L('PATCH V3-ADV: adverts.adBreaks ?'+old+'.map -> ?[]:[]   .map @'+t+' verify=OK'); }
+      else { L('PATCH V3-ADV verify=FAIL('+rb+') @'+t+' — not marking done, will retry'); } }
+  }
+  // --- MASTER write: gated on ADV landed; M2 first (safe), then M1 (commit). Flags only on verified read-back ---
+  if(v3M2Site&&v3M1Site&&!v3MasterDone&&!masterDone){
+    if(!(advDone||advwDone)){ if(!v3Waited){ v3Waited=true; L('V3: getAdMetadata @'+v3M2Site+' ready, waiting for ADV to land first (gate)'); } return; }
+    var old2='!'+v3FnArg+'.adverts||!'+v3FnArg+'.adverts.adBreaks.length)return;', neu2='1)'+v3AccVar+'=[];else';
+    while(neu2.length<old2.length) neu2+=' ';
+    if(old2.length!==46){ L('V3: unexpected old2 length '+old2.length+', abort'); return; }
+    // M2 FIRST — valid JS (else{if(1)acc=[];else ...}), does NOT force the else path on its own
+    if(!v3M2Done){
+      var cur2=rd(v3M2Site,46);
+      if(cur2===neu2){ v3M2Done=true; L('PATCH V3-M2: already committed @'+v3M2Site+' — recognized (prior write, flag recovered)'); }
+      else if(cur2!==old2){ L('V3: M2 pre-write mismatch @'+v3M2Site+', no write'); return; }
+      else { Memory.protect(v3M2Site,46,'rw-'); v3M2Site.writeByteArray(bytesOf(neu2));
+        if(rd(v3M2Site,46)!==neu2){ L('V3: M2 write verify=FAIL @'+v3M2Site+' — not committing'); return; }
+        v3M2Done=true; L('PATCH V3-M2: else{if(1)'+v3AccVar+'=[];else ...} committed @'+v3M2Site); }
+    }
+    // M1 LAST — the commit byte: forces the now-empty else path. Idempotent + self-healing on retry.
+    var cc=v3M1Site.readU8();
+    if(cc===0x30){ v3MasterDone=true; mwDone=true; masterDone=true; L('PATCH V3-MASTER: M1 already if(0) @'+v3M1Site+' — #212 recovered'); return; }
+    if(cc!==v3M1Cond.charCodeAt(0)){ L('V3: M1 pre-write mismatch (cc=0x'+cc.toString(16)+' exp "'+v3M1Cond+'") @'+v3M1Site+' — abort, stale pointer'); return; }
+    Memory.protect(v3M1Site,1,'rw-'); v3M1Site.writeU8(0x30);
+    if(v3M1Site.readU8()===0x30){ v3MasterDone=true; mwDone=true; masterDone=true;
+      L('PATCH V3-MASTER: getAdMetadata if('+v3M1Cond+')->if(0) @'+v3M1Site+' + M2 @'+v3M2Site+' verify=OK — #212 re-minify recovered'); }
+    else { L('PATCH V3-MASTER: M1 write verify=FAIL @'+v3M1Site+' — not marking done, will retry'); }
+  }
 }
 // ---------- (MASTERdump) read-only recon: dump CURRENT getAdMetadata body on drift ----------
 // If BOTH the exact and wildcard MASTER matches miss, the drift is a real REFACTOR, not a rename —
@@ -546,6 +636,9 @@ function apply(){ if(hhYield()){ setTimeout(apply,500); return; } tries++; var p
   if(!gibbonUp){ var gp=pat('nrdp.gibbon');
     for(var i=0;i<rs.length&&!gibbonUp;i++){if(rs[i].size>128*1024*1024)continue;try{if(Memory.scanSync(rs[i].base,rs[i].size,gp).length)gibbonUp=true;}catch(e){}} }
   if(gibbonUp){
+    // V3 re-anchor (#212/#232 re-minify): big-region aware, supersedes the legacy ad scans. Runs first;
+    // once it lands (v3AdvDone && v3MasterDone) the legacy block below is skipped.
+    if(!(v3AdvDone&&v3MasterDone)){ try{ patchV3(jsRanges()); }catch(e){} }
     // MASTER supersedes A/A2/ADV/DAI on 13.0.1+ (see MASTER comment): once it landed, stop paying 5 full-heap
     // scans per pass for anchors that are known to scan-miss on this build.
     if(!masterDone){patchA(rs);patchA2(rs);patchADV(rs);if(!advDone)patchADVw(rs);patchDAI(rs);patchMASTER(rs);if(!masterDone)patchMASTERw(rs);}
