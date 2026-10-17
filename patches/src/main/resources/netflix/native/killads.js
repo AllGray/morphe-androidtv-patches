@@ -15,6 +15,32 @@ function L(m){ logw(6, TAG, Memory.allocUtf8String(m)); }
 function pat(s){ return s.split('').map(function(c){return ('0'+c.charCodeAt(0).toString(16)).slice(-2);}).join(' '); }
 function bytesOf(s){ var b=[]; for (var i=0;i<s.length;i++) b.push(s.charCodeAt(i)); return b; }
 
+// ---------- STABILITY / SCAN BUDGET (stability build) ----------
+// Why: every patch below finds its anchor by scanning ALL writable memory (Memory.scanSync). The
+// original loops never stopped when an optional anchor (pause-ad B, drifted legacy A/A2/ADV/DAI) was
+// absent, and the read-only monitor re-scanned the whole heap 4x every 3 s for ~28+ min. On a
+// 32-bit armeabi-v7a TV process that keeps the JS thread at ~100% and touches every mapped page for
+// the whole viewing session (memory pressure / races with buffers being unmapped -> sudden kill).
+// This build keeps the SAME anchors and the SAME one-shot byte edits, but:
+//   1. never scans device-backed mappings (/dev/ion, /dev/mali*, dma-buf ...) — rwRanges();
+//   2. runs the diagnostic monitor only if OBSERVE_ENABLED (default OFF);
+//   3. backs off adaptively after the ad-kill lands (duty cycle <= ~25%) and stops after a bounded time;
+//   4. bounds fastMASTER by wall-clock (~60 s) instead of a pass count that could last hours.
+var OBSERVE_ENABLED=false;               // true only to debug with adb logcat -s KILL
+var T0=Date.now();
+var FAST_POLL_MS=2000, FAST_WINDOW_MS=180000;   // race-win cadence, first 3 min only
+var SLOW_POLL_MS=10000;                  // base cadence afterwards
+var POST_KILL_MAX_MS=30*60*1000;         // keep hunting optional leftovers (B/FP/GAID/HH) 30 min after the kill
+var NEVER_KILLED_MAX_MS=2*60*60*1000;    // original ~2 h ceiling when no ad-kill anchor ever matched
+function scannable(r){
+  var f=r.file; if(!f||!f.path) return true;          // anonymous memory (malloc/mmap) = where the JS source lives
+  var p=f.path;
+  if(p.indexOf('/dev/zero')===0||p.indexOf('/dev/ashmem')===0||p.indexOf('/memfd:')===0) return true;
+  if(p.indexOf('/dev/')===0||p.indexOf('/sys/')===0||p.indexOf('/proc/')===0||p.indexOf('anon_inode:')===0) return false;
+  return true;                                        // private file-backed data stays scannable
+}
+function rwRanges(){ var all=Process.enumerateRanges('rw-'),out=[]; for(var i=0;i<all.length;i++){ if(scannable(all[i])) out.push(all[i]); } return out; }
+
 // ---------- (A) manifest patch — legacy metadata.ads[] pod model ----------
 // Kept for anyone still served the old model. Newer appboots deliver dynamic ads (see ADV/DAI);
 // on those this anchor simply isn't present and patchA no-ops harmlessly.
@@ -69,6 +95,11 @@ function patchADVw(rs){ if(advDone||advwDone)return;
       for(var j=0;j<h.length;j++){ var mAddr=h[j].address, vAddr=mAddr.sub(2); // 2-char var before .map
         var v0=-1,v1=-1;try{v0=vAddr.readU8();v1=vAddr.add(1).readU8();}catch(e){continue;}
         if(!isAlpha(v0)||!isAlpha(v1))continue;
+        // stability: the 2 bytes must be a WHOLE identifier starting a fresh expression (':' '(' ',' '=' ...).
+        // Preceded by a letter/'.'/']' (e.g. `adverts.adBreaks.map`) overwriting them yields `x[].map` /
+        // `x.[].map` = SyntaxError the next time V8 (re)compiles that function (bytecode flush) -> late crash.
+        var pb=-1;try{pb=vAddr.sub(1).readU8();}catch(e){continue;}
+        if(':(,=?;{&|![+ \n'.indexOf(String.fromCharCode(pb))<0)continue;
         var fwd=null;try{fwd=mAddr.readCString(180);}catch(e){}
         if(fwd==null||(fwd.indexOf('locationMs')<0&&fwd.indexOf('getAdBreakDuration')<0))continue;
         Memory.protect(vAddr,2,'rw-');vAddr.writeByteArray([0x5b,0x5d]);advwDone=true;
@@ -152,9 +183,9 @@ function patchMASTER(rs){ if(masterDone)return;
 // as soon as both edits land. Mirrors fastHH.
 var _fastMn=0;
 function fastMASTER(){ if(masterDone)return; if(hhYield()){ setTimeout(fastMASTER,250); return; } _fastMn++;
-  try{ var _rm=Process.enumerateRanges('rw-'); patchMASTER(_rm); if(!masterDone) patchMASTERw(_rm); }catch(e){}
+  try{ var _rm=rwRanges(); patchMASTER(_rm); if(!masterDone) patchMASTERw(_rm); }catch(e){}
   if(masterDone){ L('fastMASTER: applied by pass '+_fastMn+(mwDone?' (wildcard fallback)':'')); return; }
-  if(_fastMn<500) setTimeout(fastMASTER, 120);   // ~60s of tight scanning
+  if(_fastMn<500&&(Date.now()-T0)<60000) setTimeout(fastMASTER, 120);   // ~60s of tight scanning (wall-clock bound: a pass takes seconds on a TV)
 }
 // ---------- (MASTERw) wildcard-tolerant MASTER fallback (2026-09-13, experimental — issue #166) --
 // Most Netflix "server-side" ad drift is just a re-minify that RENAMES single-char locals, which
@@ -226,7 +257,7 @@ function patchMASTERw(rs){ if(masterDone||mwDone)return;
 var _mdumpN=0, mdumpDone=false;
 function dumpMASTER(){ if(masterDone||mdumpDone)return; _mdumpN++;
   if(_mdumpN<17){ setTimeout(dumpMASTER,2000); return; }   // wait ~34s for appboot JS to materialise
-  var rs=Process.enumerateRanges('rw-'), mk='getAdMetadata', mp=pat(mk), hits=0;
+  var rs=rwRanges(), mk='getAdMetadata', mp=pat(mk), hits=0;
   for(var i=0;i<rs.length;i++){var r=rs[i];if(r.size>128*1024*1024)continue;
     try{var h=Memory.scanSync(r.base,r.size,mp);for(var j=0;j<h.length&&hits<4;j++){var addr=h[j].address,ctx=null;try{ctx=addr.readCString(520);}catch(e){}if(ctx==null||ctx.indexOf(mk)<0)continue;hits++;L('MASTER-DUMP hit@'+addr+' ctx='+JSON.stringify(ctx));}}catch(e){}}
   mdumpDone=true; L('MASTER-DUMP: '+hits+' getAdMetadata source hit(s) — re-anchor from these bodies (or 0 = token itself renamed)');
@@ -320,7 +351,7 @@ function fastHH(){ if(!HH_ENABLED||hhDone)return;
   if(!masterDone && _fastHHwait<300){ _fastHHwait++; setTimeout(fastHH,100); return; }   // yield to fastMASTER
   if(_fastHHwait && _fastHHn===0) L('fastHH: released after '+_fastHHwait+' waits (masterDone='+masterDone+')');
   _fastHHn++;
-  try{ var _r=Process.enumerateRanges('rw-'); patchHH(_r); neuterMhuRenders(_r); }catch(e){}
+  try{ var _r=rwRanges(); patchHH(_r); neuterMhuRenders(_r); }catch(e){}
   if(hhDone){ L('fastHH: all HH anchors flipped by pass '+_fastHHn); return; }
   if(_fastHHn<450) setTimeout(fastHH, 100);   // ~45s of tight scanning
 }
@@ -449,7 +480,7 @@ var _fcN=0, _fcT0=Date.now();
 // no coverage; the 30s cap bounds the delay if the dispatcher anchor ever drifts.
 function hhYield(){ return HH_ENABLED && !clcsDone && (Date.now()-_fcT0)<30000; }
 function fastCLCS(){ if(!HH_ENABLED||(clcsDone&&frDone))return; _fcN++;
-  var rs=Process.enumerateRanges('rw-');
+  var rs=rwRanges();
   if(!clcsDone){ var p=pat(FC_ANCHOR), hit=0;
     for(var i=0;i<rs.length;i++){var r=rs[i];if(r.size>128*1024*1024)continue;
       try{var h=Memory.scanSync(r.base,r.size,p);for(var j=0;j<h.length;j++){ var a=h[j].address;
@@ -490,7 +521,7 @@ var CLCS_PROBE_ENABLED=false;
 var CLCS_CTX_BEFORE=220, CLCS_CTX_AFTER=460;   // wide window: capture push fn + d(e,t) builder
 var _clcsProbeN=0, clcsProbeDone=false;
 function clcsProbe(){ if(!CLCS_PROBE_ENABLED||clcsProbeDone)return; _clcsProbeN++;
-  var rs=Process.enumerateRanges('rw-'), found=0;
+  var rs=rwRanges(), found=0;
   for(var mi=0;mi<CLCS_MARKERS.length;mi++){ var mk=CLCS_MARKERS[mi], mp=pat(mk), mhits=0;
     for(var i=0;i<rs.length;i++){var r=rs[i];if(r.size>128*1024*1024)continue;
       try{var h=Memory.scanSync(r.base,r.size,mp);
@@ -509,20 +540,35 @@ function clcsProbe(){ if(!CLCS_PROBE_ENABLED||clcsProbeDone)return; _clcsProbeN+
   if(_clcsProbeN<240) setTimeout(clcsProbe, 250);   // ~60s, lighter cadence (no fastHH competing)
 }
 
-var tries=0;
-function apply(){ if(hhYield()){ setTimeout(apply,500); return; } tries++; var rs=Process.enumerateRanges('rw-');
-  var loaded=false,gp=pat('nrdp.gibbon');
-  for(var i=0;i<rs.length&&!loaded;i++){if(rs[i].size>128*1024*1024)continue;try{if(Memory.scanSync(rs[i].base,rs[i].size,gp).length)loaded=true;}catch(e){}}
-  if(loaded){patchA(rs);patchA2(rs);patchADV(rs);if(!advDone)patchADVw(rs);patchDAI(rs);patchMASTER(rs);if(!masterDone)patchMASTERw(rs);patchB(rs);patchFP(rs);patchGAID(rs);patchHH(rs);neuterMhuRenders(rs);patchCLCS(rs);}
+var tries=0, gibbonUp=false, killAt=0;
+function apply(){ if(hhYield()){ setTimeout(apply,500); return; } tries++; var pt0=Date.now(); var rs=rwRanges();
+  // 'nrdp.gibbon' only has to be seen ONCE (was re-scanned on every pass).
+  if(!gibbonUp){ var gp=pat('nrdp.gibbon');
+    for(var i=0;i<rs.length&&!gibbonUp;i++){if(rs[i].size>128*1024*1024)continue;try{if(Memory.scanSync(rs[i].base,rs[i].size,gp).length)gibbonUp=true;}catch(e){}} }
+  if(gibbonUp){
+    // MASTER supersedes A/A2/ADV/DAI on 13.0.1+ (see MASTER comment): once it landed, stop paying 5 full-heap
+    // scans per pass for anchors that are known to scan-miss on this build.
+    if(!masterDone){patchA(rs);patchA2(rs);patchADV(rs);if(!advDone)patchADVw(rs);patchDAI(rs);patchMASTER(rs);if(!masterDone)patchMASTERw(rs);}
+    patchB(rs);patchFP(rs);patchGAID(rs);patchHH(rs);neuterMhuRenders(rs);patchCLCS(rs);}
   // Keep polling until applied. The ad-insertion source (ADV/DAI) and prepareAdBreakStates (A)
   // can load LATER than the pause module (B) — sometimes only once playback is exercised — so we
   // must NOT give up early. WRITE-ONCE per patch (done guards) — not a re-patch loop.
+  var killed=(aDone||a2Done||masterDone);
+  if(killed&&!killAt)killAt=Date.now();
   var fpOk=(!FP_ENABLED||fpDone);
   var gaidOk=(!GAID_ENABLED||gaidDone);
   var hhOk=(!HH_ENABLED||hhDone);
-  if((aDone||a2Done||masterDone)&&bDone&&fpOk&&gaidOk&&hhOk){ L('apply DONE: A='+aDone+' A2='+a2Done+' ADV='+advDone+' DAI='+daiDone+' MASTER='+masterDone+'(m1='+m1Done+',m2='+m2Done+') B='+bDone+' FP='+(FP_ENABLED?fpDone:'off')+' GAID='+(GAID_ENABLED?gaidDone:'off')+' HH='+(HH_ENABLED?hhDone:'off')+' tries='+tries); return; }
+  if(killed&&bDone&&fpOk&&gaidOk&&hhOk){ L('apply DONE: A='+aDone+' A2='+a2Done+' ADV='+advDone+' DAI='+daiDone+' MASTER='+masterDone+'(m1='+m1Done+',m2='+m2Done+') B='+bDone+' FP='+(FP_ENABLED?fpDone:'off')+' GAID='+(GAID_ENABLED?gaidDone:'off')+' HH='+(HH_ENABLED?hhDone:'off')+' tries='+tries); return; }
   if(tries%15===0) L('apply waiting: A='+aDone+' A2='+a2Done+' ADV='+advDone+' DAI='+daiDone+' MASTER='+masterDone+'(m1='+m1Done+',m2='+m2Done+') B='+bDone+' HH='+(HH_ENABLED?hhDone:'off')+' tries='+tries);
-  if(tries<3600) setTimeout(apply, 2000);   // up to ~2h of find-and-apply polling
+  var now=Date.now();
+  // Bounded hunt: after the kill landed we only look for optional leftovers (pause-ad B ...) for POST_KILL_MAX_MS.
+  if(killed&&(now-killAt)>POST_KILL_MAX_MS){ L('apply STOP: kill landed, optional leftovers not found in '+Math.round(POST_KILL_MAX_MS/60000)+' min (B='+bDone+') tries='+tries+' — scanning stopped'); return; }
+  if(!killed&&(now-T0)>NEVER_KILLED_MAX_MS){ L('apply STOP: no ad-kill anchor matched in '+Math.round(NEVER_KILLED_MAX_MS/60000)+' min tries='+tries); return; }
+  // Adaptive back-off: a pass over the whole heap can take several seconds on a TV SoC. Fast only during the
+  // launch race-win window; afterwards wait >= 3x the pass duration once killed (<=25% duty), >= 1x before.
+  var dur=Date.now()-pt0;
+  var base=(!killed&&(now-T0)<FAST_WINDOW_MS)?FAST_POLL_MS:SLOW_POLL_MS;
+  setTimeout(apply, Math.max(base, dur*(killed?3:1)));
 }
 
 // ---------- monitor (read-only) ----------
@@ -530,7 +576,7 @@ var KILLMARK=pat('__adkill'),REALPOD=pat('ads":[{'),DISPAD=pat('displayAd":{'),B
 function readNumAfter(addr,skip){ try{var s=addr.add(skip).readCString(14);var m=/^([0-9]{1,12})/.exec(s);return m?parseInt(m[1],10):-1;}catch(e){return -1;} }
 var cyc=0;
 function observe(){ if(hhYield()){ setTimeout(observe,1000); return; } cyc++;
-  var rs=Process.enumerateRanges('rw-');var kill=0,real=0,disp=0;var bset={};
+  var rs=rwRanges();var kill=0,real=0,disp=0;var bset={};
   for(var i=0;i<rs.length;i++){var r=rs[i];if(r.size>64*1024*1024||r.size<256)continue;
     try{ kill+=Memory.scanSync(r.base,r.size,KILLMARK).length; real+=Memory.scanSync(r.base,r.size,REALPOD).length; disp+=Memory.scanSync(r.base,r.size,DISPAD).length;
       var bh=Memory.scanSync(r.base,r.size,BM); for(var k=0;k<bh.length&&k<40;k++){var v=readNumAfter(bh[k].address,11);if(v>0)bset[v]=1;}
@@ -545,9 +591,9 @@ function observe(){ if(hhYield()){ setTimeout(observe,1000); return; } cyc++;
   if(cyc<560) setTimeout(observe,3000);   // ~28 min coverage
 }
 
-L('killads ready (A/A2/ADV/DAI/MASTER ad-kill + B pause, single-shot; ad+resume monitor)');
+L('killads ready [stability build: scan budget + device-range filter, monitor '+(OBSERVE_ENABLED?'ON':'OFF')+'] (A/A2/ADV/DAI/MASTER ad-kill + B pause, single-shot)');
 setTimeout(apply,5000);
-setTimeout(observe,9000);
+if(OBSERVE_ENABLED) setTimeout(observe,9000);
 // ANCHOR MAP (drift self-detection) — periodic at-a-glance hook state on its OWN timer, so the summary
 // ALWAYS appears (apply()'s DONE line is gated on the whole loop completing and can be missed on some
 // builds — reported on 1.36.0). Shows which anchors installed and whether MASTER/ADV used the wildcard
