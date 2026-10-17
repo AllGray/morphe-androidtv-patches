@@ -1,3 +1,10 @@
+## [1.42.1](https://github.com/ajstrick81/morphe-androidtv-patches/compare/v1.42.0...v1.42.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* **netflix:** bound killads scan budget and filter device-backed memory ([#232](https://github.com/ajstrick81/morphe-androidtv-patches/issues/232)) ([c267a73](https://github.com/ajstrick81/morphe-androidtv-patches/commit/c267a73bbc0001de9566397e6ca1452f11ed69ea))
+
 # [1.42.0](https://github.com/ajstrick81/morphe-androidtv-patches/compare/v1.41.0...v1.42.0) (2026-10-17)
 
 
