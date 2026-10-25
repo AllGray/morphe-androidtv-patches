@@ -5,7 +5,7 @@ patches {
         // A fork's own identity: Morphe Manager treats bundles with the same name/source as one and keeps the
         // highest version, so with ajstrick81's name this fork was hidden behind the original's 1.42.x.
         name = "AllGray Patches"
-        description = "ajstrick81's Android TV ad-blocking patches, plus Pluto TV 17"
+        description = "Pluto TV ad patches (5.66 and 17), from ajstrick81's Android TV patches"
         source = "https://github.com/AllGray/morphe-androidtv-patches"
         author = "AllGray (fork of ajstrick81)"
         contact = "https://github.com/AllGray"

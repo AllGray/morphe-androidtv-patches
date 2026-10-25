@@ -1,7 +1,0 @@
-# Keep analysis notes in git; keep large decompiled/apk artifacts out.
-*.apk
-*.apkm
-decompiled/
-smali/
-_dex/
-splits/
