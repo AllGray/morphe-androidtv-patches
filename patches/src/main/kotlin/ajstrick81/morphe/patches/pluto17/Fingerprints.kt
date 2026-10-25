@@ -37,6 +37,15 @@ internal object PauseAdsRender17Fingerprint : Fingerprint(
     },
 )
 
+// Pluto's stitcher session, StitcherSession(id, cdn, …, adBreak, adBreaks, adBreakLocations, clips, …) (17.2.0 TV: Lv1h;).
+// The player's content timeline (duration, time left) and the ad countdown are worked out from its ad breaks, so with the
+// ad periods gone from the stream they showed the wrong times. Found by its data-class toString.
+internal object StitcherSessionToString17Fingerprint : Fingerprint(
+    returnType = "Ljava/lang/String;",
+    strings = listOf("StitcherSession(id="),
+    custom = { method, _ -> method.name == "toString" },
+)
+
 // Pluto's ad-break timeline, AdsData(adBreaks: List, ...): a Kotlin data class (17.2.0 TV: Lgm;) whose
 // toString() spells its field names. Found by that literal; its constructor is then edited (see the patch).
 internal object AdsDataToString17Fingerprint : Fingerprint(

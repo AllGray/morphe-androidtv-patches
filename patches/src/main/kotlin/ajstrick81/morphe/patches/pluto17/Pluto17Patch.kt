@@ -27,6 +27,7 @@ package ajstrick81.morphe.patches.pluto17
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.patch.bytecodePatch
 import ajstrick81.morphe.patches.pluto.shared.Constants
+import com.android.tools.smali.dexlib2.Opcode
 
 private const val FILTER = "Lajstrick81/morphe/extension/pluto17/PlutoMpdFilter;"
 
@@ -67,6 +68,34 @@ val pluto17SkipAdsPatch = bytecodePatch(
                 move-result-object p1
             """.trimIndent(),
         )
+
+        // 2b. StitcherSession: once built, its adBreaks (the first ArrayList field) and adBreakLocations (its only List
+        //     field) are emptied, so the player's time and countdown no longer count the removed breaks. clips (the
+        //     second ArrayList) and the current adBreak are left alone. Field names are R8 letters; their types and
+        //     order (as in the data class's toString) identify them.
+        val sessionType = StitcherSessionToString17Fingerprint.classDef.type
+        val session = mutableClassDefByOrNull { it.type == sessionType }
+            ?: error("Pluto 17: StitcherSession class $sessionType not found")
+        val adBreaksField = session.fields.first { it.type == "Ljava/util/ArrayList;" }.name
+        val locationsField = session.fields.first { it.type == "Ljava/util/List;" }.name
+        session.methods.filter { it.name == "<init>" }.forEach { ctor ->
+            val returns = ctor.implementation!!.instructions.withIndex()
+                .filter { it.value.opcode == Opcode.RETURN_VOID }.map { it.index }.reversed()
+            check(ctor.implementation!!.registerCount > ctor.parameters.size + 1) { "Pluto 17: no free register in StitcherSession.<init>" }
+            returns.forEach { i ->
+                ctor.addInstructions(
+                    i,
+                    """
+                        new-instance v0, Ljava/util/ArrayList;
+                        invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
+                        iput-object v0, p0, $sessionType->$adBreaksField:Ljava/util/ArrayList;
+                        invoke-static {}, Ljava/util/Collections;->emptyList()Ljava/util/List;
+                        move-result-object v0
+                        iput-object v0, p0, $sessionType->$locationsField:Ljava/util/List;
+                    """.trimIndent(),
+                )
+            }
+        }
 
         // 3. Pause ads (TV build): the overlay's render step returns at once, so the ad image is never
         //    loaded or faded in. The phone/tablet build has no such overlay, hence OrNull.
