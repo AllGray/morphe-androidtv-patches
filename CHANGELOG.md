@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.0...v1.1.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **pluto17:** no pause ads (CbsPauseWithAdsOverlay render step is a no-op) ([de8d2c0](https://github.com/AllGray/morphe-androidtv-patches/commit/de8d2c0870b0859e00b619748d7c717636e99822))
+
 # [1.1.0](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.0.2...v1.1.0) (2026-10-25)
 
 
