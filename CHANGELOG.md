@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.2...v1.1.3) (2026-10-25)
+
+
+### Bug Fixes
+
+* **pluto17:** empty the stitcher session's adBreaks and adBreakLocations (wrong time left, ad countdown) ([7b40eea](https://github.com/AllGray/morphe-androidtv-patches/commit/7b40eea8fe5b4749fb2087245b631f3dd7dd3a4f))
+
 ## [1.1.2](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.1...v1.1.2) (2026-10-25)
 
 
