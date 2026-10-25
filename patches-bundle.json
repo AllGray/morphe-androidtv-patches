@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-10-25T18:58:39",
-  "description": "## [1.1.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.0...v1.1.1) (2026-10-25)\n\n\n### Bug Fixes\n\n* **pluto17:** no pause ads (CbsPauseWithAdsOverlay render step is a no-op) ([de8d2c0](https://github.com/AllGray/morphe-androidtv-patches/commit/de8d2c0870b0859e00b619748d7c717636e99822))",
-  "download_url": "https://github.com/AllGray/morphe-androidtv-patches/releases/download/v1.1.1/patches-1.1.1.mpp",
+  "created_at": "2026-10-25T21:28:38",
+  "description": "## [1.1.2](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.1...v1.1.2) (2026-10-25)\n\n\n### Bug Fixes\n\n* **pluto17:** treat every period outside a /clip/ folder as an ad (an unmarked ad played ~100 s) ([242ae5f](https://github.com/AllGray/morphe-androidtv-patches/commit/242ae5fe6ce464fefbe6672e20d1b7da54d7fe52))",
+  "download_url": "https://github.com/AllGray/morphe-androidtv-patches/releases/download/v1.1.2/patches-1.1.2.mpp",
   "signature_download_url": "",
-  "version": "1.1.1"
+  "version": "1.1.2"
 }

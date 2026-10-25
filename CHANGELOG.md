@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.1...v1.1.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* **pluto17:** treat every period outside a /clip/ folder as an ad (an unmarked ad played ~100 s) ([242ae5f](https://github.com/AllGray/morphe-androidtv-patches/commit/242ae5fe6ce464fefbe6672e20d1b7da54d7fe52))
+
 ## [1.1.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.0...v1.1.1) (2026-10-25)
 
 
