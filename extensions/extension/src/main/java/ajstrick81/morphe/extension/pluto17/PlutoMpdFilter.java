@@ -90,9 +90,27 @@ public final class PlutoMpdFilter {
         return result;
     }
 
+    // Content (the show, Pluto's own warning cards) always comes from a partner's /clip/ folder, e.g.
+    // /704_Comedy_Central_Nordics/clip/... or /190_pluto/clip/...; ads come from /v1/mp4/... (creatives) and /v1/jit/...
+    // (bumpers), and on the TV some ads were not marked _ad/creative at all (one played ~100 s). So a period is an ad
+    // when it is marked as one OR when none of its BaseURLs points into a /clip/ folder.
+    private static final Pattern BASE_URL = Pattern.compile("<BaseURL[^>]*>([^<]*)</BaseURL>");
+
     private static boolean isAd(String period) {
         for (String m : AD_MARKERS) if (period.contains(m)) return true;
-        return false;
+        Matcher m = BASE_URL.matcher(period);
+        boolean any = false;
+        while (m.find()) {
+            any = true;
+            if (m.group(1).contains("/clip/")) return false;
+        }
+        if (any) {
+            Matcher f = BASE_URL.matcher(period); f.find();
+            String u = f.group(1);
+            Log.i(TAG, "dropping unmarked period from " + u.substring(0, Math.min(90, u.length())));
+            return true;
+        }
+        return false;   // no BaseURL to judge by: keep it (fail-open)
     }
 
     private static double seconds(String iso) {
