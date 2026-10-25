@@ -19,3 +19,9 @@
     public static void unregisterActivity(android.app.Activity);
     public static void setAviaPlayer(java.lang.Object);
 }
+
+# Pluto TV 17 — DASH ad-period filter. PlutoMpdFilter.filter(InputStream) is called only from injected
+# smali at the start of media3's (R8-renamed) DashManifestParser.parse, so R8 would strip or rename it.
+-keep class ajstrick81.morphe.extension.pluto17.PlutoMpdFilter {
+    public static java.io.InputStream filter(java.io.InputStream);
+}

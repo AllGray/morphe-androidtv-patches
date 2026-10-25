@@ -1,25 +1,23 @@
 /*
  * Pluto TV 17.x — Ad Patch
  *
- * Pluto TV 17 is not a new version of the 5.66.0-leanback app that patches/pluto targets: it is a
- * rebuild on Paramount+'s app platform (com.paramount.android.*, com.viacom.*, com.cbs.app.*) with
- * the AVIA player, and none of the 5.66 hooks (BeaconTracker, PauseAdsImageBinder, StitcherSession,
- * unobfuscated media3) exist in it. The Paramount+ VOD ad gate does:
+ * Pluto TV 17 is a rebuild on Paramount+'s app platform (com.paramount.android.*, com.cbs.app.*), and
+ * media3 is R8-renamed, so the 5.66.0-leanback hooks in patches/pluto don't exist in it. On-device
+ * (Sony BRAVIA, Android 9, 17.2.0 TV build) its VOD still comes from Pluto's own stitcher as ONE
+ * multi-period DASH manifest — the same shape 5.66 used: DRM'd content periods alternating with ad
+ * periods whose BaseURL holds the creative path (_ad%2Fcreative%2F…) and pod bumpers (_ad_bumper).
+ * The AVIA DAI ad gate the first version relied on is not used for this stream.
  *
- *   AviaDAIResourceProvider.shouldPlayAd(AviaAdPod): Z   (private, readable name)
+ * Two layers, as in the 5.66 patch:
+ *   1. The ad VIDEO: the manifest text goes through PlutoMpdFilter before media3's (renamed)
+ *      DashManifestParser reads it; ad periods are dropped and the rest re-based contiguous.
+ *      Fail-open: a manifest it can't rewrite is passed through unchanged.
+ *   2. The ad TIMELINE: AdsData(adBreaks=…) — what draws the seekbar markers, fires the ad beacons
+ *      and blocks seeking during breaks — is created with an empty list. With the ad periods gone its
+ *      offsets would point into the wrong places anyway.
  *
- * Its position monitor takes AVIA's own skip-the-pod path when this returns false (see
- * patches/paramount/ParamountPatch.kt, Patch 1). Present, unchanged, in both 17.2.0 builds:
- * Android TV (versionCode 520000962) and phone/tablet (420000962).
- *
- * Not ported (yet), from the Paramount+ patch:
- *   - Pause ads: CbsPauseWithAdsOverlay exists in the TV build, but its render method lost the
- *     " not updating overlay." log anchor (methods are R8-renamed G/H/I) — needs an on-device trace.
- *   - Live slate: AviaNetworkInterceptor.intercept returns an R8-renamed okhttp type here (okhttp3 is
- *     obfuscated in Pluto 17), and Pluto's live breaks are its own stitcher, not Google DAI pods.
- *
- * Whether Pluto's stitched (SSAI) VOD streams go through the DAI provider is to be confirmed
- * on-device; if they don't, this patch is a harmless no-op.
+ * Not covered yet: pause ads, live channels, and re-mapping a resume bookmark saved in the old
+ * (ad-inclusive) timeline (5.66 issue #147).
  */
 
 package ajstrick81.morphe.patches.pluto17
@@ -28,16 +26,47 @@ import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.patch.bytecodePatch
 import ajstrick81.morphe.patches.pluto.shared.Constants
 
+private const val FILTER = "Lajstrick81/morphe/extension/pluto17/PlutoMpdFilter;"
+
 @Suppress("unused")
 val pluto17SkipAdsPatch = bytecodePatch(
     name = "Skip ads (Pluto TV 17)",
-    description = "Skips on-demand ad breaks in Pluto TV 17.x (the Paramount-based app), " +
-        "Android TV and phone/tablet builds, through the AVIA player's ad gate. Experimental.",
+    description = "Removes on-demand ads in Pluto TV 17.x (the Paramount-based app): drops the ad " +
+        "periods from the stitched DASH stream so the ad video never plays, and empties the ad-break " +
+        "timeline (markers, beacons, seek blocking). Fail-open: a stream it can't rewrite plays as before. " +
+        "Live TV ads are not covered. Experimental.",
 ) {
     compatibleWith(Constants.COMPATIBILITY_17)
 
+    extendWith("extensions/extension.mpe")
+
     execute {
-        // shouldPlayAd(AviaAdPod) -> false for every pod: AVIA skips the pod natively.
+        // 1. DashManifestParser.parse(Uri p1, InputStream p2): filter the stream before anything reads it.
+        DashManifestParse17Fingerprint.method.addInstructions(
+            0,
+            """
+                invoke-static {p2}, $FILTER->filter(Ljava/io/InputStream;)Ljava/io/InputStream;
+                move-result-object p2
+            """.trimIndent(),
+        )
+
+        // 2. AdsData.<init>(List adBreaks p1, String, long, long): always an empty list. The constructor has
+        //    no free locals, so the empty list goes straight into the parameter register p1.
+        val adsDataType = AdsDataToString17Fingerprint.classDef.type
+        val adsData = mutableClassDefByOrNull { it.type == adsDataType }
+            ?: error("Pluto 17: AdsData class $adsDataType not found")
+        val init = adsData.methods.first {
+            it.name == "<init>" && it.parameterTypes.firstOrNull()?.toString() == "Ljava/util/List;"
+        }
+        init.addInstructions(
+            0,
+            """
+                invoke-static {}, Ljava/util/Collections;->emptyList()Ljava/util/List;
+                move-result-object p1
+            """.trimIndent(),
+        )
+
+        // Paramount's DAI gate, kept from the first version: harmless if unused.
         ShouldPlayAd17Fingerprint.method.addInstructions(
             0,
             """
