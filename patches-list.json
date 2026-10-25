@@ -1,5 +1,5 @@
 {
-  "version": "1.42.3",
+  "version": "1.0.0",
   "appNames": {
     "com.disney.disneyplus": "Disney+ Android TV",
     "com.espn.score_center": "ESPN Android TV",
@@ -11,7 +11,7 @@
     "com.netflix.ninja": "Netflix Android TV",
     "com.cbs.ott": "Paramount+ Android TV",
     "com.peacocktv.peacockandroid": "Peacock TV Android TV",
-    "tv.pluto.android": "Pluto TV Android TV",
+    "tv.pluto.android": "Pluto TV",
     "com.amazon.amazonvideo.livingroom": "Prime Video Android TV",
     "it.rainet.androidtv": "RaiPlay Android TV",
     "com.twentyfouri.tvbridge.rte": "RTÉ Player Android TV",
@@ -200,18 +200,23 @@
       "dependencies": [],
       "compatiblePackages": {
         "tv.pluto.android": [
-          "5.66.0-leanback"
+          "5.66.0-leanback",
+          "17.2.0"
         ]
       },
       "compatibility": [
         {
-          "name": "Pluto TV Android TV",
+          "name": "Pluto TV",
           "packageName": "tv.pluto.android",
           "description": null,
           "appIconColor": 12103684,
           "targets": [
             {
               "version": "5.66.0-leanback",
+              "experimental": false
+            },
+            {
+              "version": "17.2.0",
               "experimental": false
             }
           ]
@@ -1195,6 +1200,32 @@
             },
             {
               "version": "4.51.0_tv",
+              "experimental": false
+            }
+          ]
+        }
+      ],
+      "options": []
+    },
+    {
+      "name": "Skip ads (Pluto TV 17)",
+      "description": "Skips on-demand ad breaks in Pluto TV 17.x (the Paramount-based app), Android TV and phone/tablet builds, through the AVIA player's ad gate. Experimental.",
+      "use": true,
+      "dependencies": [],
+      "compatiblePackages": {
+        "tv.pluto.android": [
+          "17.2.0"
+        ]
+      },
+      "compatibility": [
+        {
+          "name": "Pluto TV",
+          "packageName": "tv.pluto.android",
+          "description": null,
+          "appIconColor": 12103684,
+          "targets": [
+            {
+              "version": "17.2.0",
               "experimental": false
             }
           ]
