@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.1.0",
   "appNames": {
     "tv.pluto.android": "Pluto TV"
   },
@@ -141,7 +141,7 @@
     },
     {
       "name": "Skip ads (Pluto TV 17)",
-      "description": "Skips on-demand ad breaks in Pluto TV 17.x (the Paramount-based app), Android TV and phone/tablet builds, through the AVIA player's ad gate. Experimental.",
+      "description": "Removes on-demand ads in Pluto TV 17.x (the Paramount-based app): drops the ad periods from the stitched DASH stream so the ad video never plays, and empties the ad-break timeline (markers, beacons, seek blocking). Fail-open: a stream it can't rewrite plays as before. Live TV ads are not covered. Experimental.",
       "use": true,
       "dependencies": [],
       "compatiblePackages": {

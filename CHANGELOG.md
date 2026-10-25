@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.0.2...v1.1.0) (2026-10-25)
+
+
+### Features
+
+* **pluto17:** remove VOD ad periods from the stitched DASH manifest and empty AdsData ([a5a7c6b](https://github.com/AllGray/morphe-androidtv-patches/commit/a5a7c6bffe92174c031f9c4f5d568f817fccaf61))
+
 ## [1.0.2](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.0.1...v1.0.2) (2026-10-25)
 
 
