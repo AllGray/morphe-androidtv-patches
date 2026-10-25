@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.0.1...v1.0.2) (2026-10-25)
+
+
+### Bug Fixes
+
+* Pluto TV only — drop the other apps' patches, extensions and native build ([660af70](https://github.com/AllGray/morphe-androidtv-patches/commit/660af70b1a370465fcccc74b5bdb2c7007e5cf25))
+
 ## [1.0.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.0.0...v1.0.1) (2026-10-25)
 
 
