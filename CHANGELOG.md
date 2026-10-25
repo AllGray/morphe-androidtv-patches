@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.0.0...v1.0.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* give the fork its own bundle name and source ([c43eed3](https://github.com/AllGray/morphe-androidtv-patches/commit/c43eed32f399a4eec072241fc24180500b08f7d8))
+
 # 1.0.0 (2026-10-25)
 
 
