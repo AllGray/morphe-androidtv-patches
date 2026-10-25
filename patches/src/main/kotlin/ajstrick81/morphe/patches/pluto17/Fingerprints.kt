@@ -23,6 +23,20 @@ internal object DashManifestParse17Fingerprint : Fingerprint(
     strings = listOf("inputStream does not contain a valid media presentation description"),
 )
 
+// Pause ads: CbsPauseWithAdsOverlay's render step, called with each new overlay state. In Pluto 17 it lost
+// the " not updating overlay." log line the Paramount+ patch anchors on and is R8-renamed (17.2.0 TV:
+// static H(CbsPauseWithAdsOverlay, Lo32;)V, which sizes the image and fades it in via G(J)). Found as the
+// class's only static void method taking the overlay itself plus one state object. TV build only.
+internal object PauseAdsRender17Fingerprint : Fingerprint(
+    returnType = "V",
+    custom = { method, _ ->
+        method.definingClass.endsWith("/CbsPauseWithAdsOverlay;") &&
+            AccessFlags.STATIC.isSet(method.accessFlags) &&
+            method.parameterTypes.size == 2 &&
+            method.parameterTypes[0].toString() == method.definingClass
+    },
+)
+
 // Pluto's ad-break timeline, AdsData(adBreaks: List, ...): a Kotlin data class (17.2.0 TV: Lgm;) whose
 // toString() spells its field names. Found by that literal; its constructor is then edited (see the patch).
 internal object AdsDataToString17Fingerprint : Fingerprint(

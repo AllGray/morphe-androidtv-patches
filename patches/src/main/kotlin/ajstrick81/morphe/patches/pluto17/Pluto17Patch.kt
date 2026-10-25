@@ -16,7 +16,9 @@
  *      and blocks seeking during breaks — is created with an empty list. With the ad periods gone its
  *      offsets would point into the wrong places anyway.
  *
- * Not covered yet: pause ads, live channels, and re-mapping a resume bookmark saved in the old
+ *   3. Pause ads: CbsPauseWithAdsOverlay's render step (R8-renamed) is a no-op.
+ *
+ * Not covered yet: live channels, and re-mapping a resume bookmark saved in the old
  * (ad-inclusive) timeline (5.66 issue #147).
  */
 
@@ -65,6 +67,10 @@ val pluto17SkipAdsPatch = bytecodePatch(
                 move-result-object p1
             """.trimIndent(),
         )
+
+        // 3. Pause ads (TV build): the overlay's render step returns at once, so the ad image is never
+        //    loaded or faded in. The phone/tablet build has no such overlay, hence OrNull.
+        PauseAdsRender17Fingerprint.methodOrNull?.addInstructions(0, "return-void")
 
         // Paramount's DAI gate, kept from the first version: harmless if unused.
         ShouldPlayAd17Fingerprint.method.addInstructions(
