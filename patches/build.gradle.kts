@@ -2,12 +2,14 @@ group = "app.morphe"
 
 patches {
     about {
-        name = "ajstrick81 Patches"
-        description = "Ad-blocking patches for Android TV streaming apps"
-        source = "https://github.com/ajstrick81/morphe-androidtv-patches"
-        author = "ajstrick81"
-        contact = "https://github.com/ajstrick81"
-        website = "https://github.com/ajstrick81/morphe-androidtv-patches"
+        // A fork's own identity: Morphe Manager treats bundles with the same name/source as one and keeps the
+        // highest version, so with ajstrick81's name this fork was hidden behind the original's 1.42.x.
+        name = "AllGray Patches"
+        description = "ajstrick81's Android TV ad-blocking patches, plus Pluto TV 17"
+        source = "https://github.com/AllGray/morphe-androidtv-patches"
+        author = "AllGray (fork of ajstrick81)"
+        contact = "https://github.com/AllGray"
+        website = "https://github.com/AllGray/morphe-androidtv-patches"
         license = "GPLv3"
     }
 }
