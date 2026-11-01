@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.2.0...v1.2.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* clamp the Pluto phone corner sizes again before the check and treat Infinity as bad ([5e2e390](https://github.com/AllGray/morphe-androidtv-patches/commit/5e2e390c2887e45ad55c20b29641209469630bf0))
+
 # [1.2.0](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.3...v1.2.0) (2026-11-01)
 
 
