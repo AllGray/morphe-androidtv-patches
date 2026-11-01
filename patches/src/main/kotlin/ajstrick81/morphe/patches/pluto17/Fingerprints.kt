@@ -53,3 +53,10 @@ internal object AdsDataToString17Fingerprint : Fingerprint(
     strings = listOf("AdsData(adBreaks="),
     custom = { method, _ -> method.name == "toString" },
 )
+
+// Compose's CornerBasedShape.createOutline (17.2.0 phone: Lr1g;->a(JLrz9;Lew4;)Lxz5;). It computes the four corner
+// sizes in px and throws IllegalArgumentException("Corner size in Px can't be negative(topStart = ...)!") when one is
+// negative or NaN. Found by that message, which only this method builds.
+internal object CornerOutlineFingerprint : Fingerprint(
+    strings = listOf("Corner size in Px can't be negative(topStart = "),
+)

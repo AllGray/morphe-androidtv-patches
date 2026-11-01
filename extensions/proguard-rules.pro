@@ -25,3 +25,9 @@
 -keep class ajstrick81.morphe.extension.pluto17.PlutoMpdFilter {
     public static java.io.InputStream filter(java.io.InputStream);
 }
+
+# Pluto TV 17 phone build — NaN corner fix. PlutoComposeFix.nanToZero(float) is called only from injected
+# smali (see PlutoComposeCornerFixPatch.kt).
+-keep class ajstrick81.morphe.extension.pluto17.PlutoComposeFix {
+    public static float nanToZero(float);
+}
