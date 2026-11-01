@@ -19,7 +19,8 @@ object Constants {
         name = "Pluto TV",
         packageName = "tv.pluto.android",
         appIconColor = 0xB8B004,
-        targets = listOf(AppTarget("17.2.0"))
+        // The versionCode form names the Android TV build on APKMirror (520000962); the phone build is 420000962.
+        targets = listOf(AppTarget("17.2.0"), AppTarget("17.2.0-520000962"))
     )
 
     // For patches that only touch the manifest (Clone), so they work on 5.66 and 17.x alike.
@@ -27,6 +28,6 @@ object Constants {
         name = "Pluto TV",
         packageName = "tv.pluto.android",
         appIconColor = 0xB8B004,
-        targets = listOf(AppTarget("5.66.0-leanback"), AppTarget("17.2.0"))
+        targets = listOf(AppTarget("5.66.0-leanback"), AppTarget("17.2.0"), AppTarget("17.2.0-520000962"))
     )
 }
