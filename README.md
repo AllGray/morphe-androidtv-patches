@@ -23,4 +23,11 @@ In Morphe Manager: **Sources → add** `https://github.com/AllGray/morphe-androi
 the `.mpp` from Releases), then pick the Pluto TV `.apkm` from APKMirror (Android TV listing,
 `armeabi-v7a`). Keep **Optimize for device architecture** off.
 
+**Pluto TV 17.2.0: pick the file yourself.** The TV build (versionCode `520000962`) and the phone/tablet
+build (`420000962`) share the version name `17.2.0`, and a patch can only name a package and version, so
+Morphe Manager may download the phone build on its own. The phone build has a touch-only player (no
+media session, no D-pad focus) and crashes on series pages on a TV-sized screen. Download the Android TV
+listing from APKMirror and choose that file in Manager instead of letting it download one. The optional
+**Fix corner crash (Pluto TV 17 phone build)** patch is only for the phone build.
+
 Releases are built by GitHub Actions on every push to `main`.
