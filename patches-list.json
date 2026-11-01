@@ -1,5 +1,5 @@
 {
-  "version": "1.1.3",
+  "version": "1.2.0",
   "appNames": {
     "tv.pluto.android": "Pluto TV"
   },
@@ -54,6 +54,32 @@
           "targets": [
             {
               "version": "5.66.0-leanback",
+              "experimental": false
+            }
+          ]
+        }
+      ],
+      "options": []
+    },
+    {
+      "name": "Fix corner crash (Pluto TV 17 phone build)",
+      "description": "Stops the Pluto TV 17 phone build from crashing with \"Corner size in Px can't be negative (… = NaN)\" when a series page opens on a TV-sized screen: a corner radius that works out to NaN becomes a square corner. Only for the phone/tablet build; fail-open (does nothing if the code isn't found). Opt-in.",
+      "use": false,
+      "dependencies": [],
+      "compatiblePackages": {
+        "tv.pluto.android": [
+          "17.2.0"
+        ]
+      },
+      "compatibility": [
+        {
+          "name": "Pluto TV",
+          "packageName": "tv.pluto.android",
+          "description": null,
+          "appIconColor": 12103684,
+          "targets": [
+            {
+              "version": "17.2.0",
               "experimental": false
             }
           ]

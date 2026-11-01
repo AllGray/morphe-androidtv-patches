@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.3...v1.2.0) (2026-11-01)
+
+
+### Features
+
+* add opt-in patch for the Pluto TV 17 phone build NaN corner crash ([904160d](https://github.com/AllGray/morphe-androidtv-patches/commit/904160dc212e3a56742e484428cf92f3e8d33cc0))
+
 ## [1.1.3](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.1.2...v1.1.3) (2026-10-25)
 
 
