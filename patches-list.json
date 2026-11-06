@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "appNames": {
     "tv.pluto.android": "Pluto TV"
   },
@@ -12,7 +12,8 @@
       "compatiblePackages": {
         "tv.pluto.android": [
           "5.66.0-leanback",
-          "17.2.0"
+          "17.2.0",
+          "17.2.0-520000962"
         ]
       },
       "compatibility": [
@@ -28,6 +29,10 @@
             },
             {
               "version": "17.2.0",
+              "experimental": false
+            },
+            {
+              "version": "17.2.0-520000962",
               "experimental": false
             }
           ]
@@ -68,7 +73,8 @@
       "dependencies": [],
       "compatiblePackages": {
         "tv.pluto.android": [
-          "17.2.0"
+          "17.2.0",
+          "17.2.0-520000962"
         ]
       },
       "compatibility": [
@@ -80,6 +86,10 @@
           "targets": [
             {
               "version": "17.2.0",
+              "experimental": false
+            },
+            {
+              "version": "17.2.0-520000962",
               "experimental": false
             }
           ]
@@ -172,7 +182,8 @@
       "dependencies": [],
       "compatiblePackages": {
         "tv.pluto.android": [
-          "17.2.0"
+          "17.2.0",
+          "17.2.0-520000962"
         ]
       },
       "compatibility": [
@@ -184,6 +195,10 @@
           "targets": [
             {
               "version": "17.2.0",
+              "experimental": false
+            },
+            {
+              "version": "17.2.0-520000962",
               "experimental": false
             }
           ]

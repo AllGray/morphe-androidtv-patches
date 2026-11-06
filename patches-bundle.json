@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-11-01T17:17:45",
-  "description": "## [1.2.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.2.0...v1.2.1) (2026-11-01)\n\n\n### Bug Fixes\n\n* clamp the Pluto phone corner sizes again before the check and treat Infinity as bad ([5e2e390](https://github.com/AllGray/morphe-androidtv-patches/commit/5e2e390c2887e45ad55c20b29641209469630bf0))",
-  "download_url": "https://github.com/AllGray/morphe-androidtv-patches/releases/download/v1.2.1/patches-1.2.1.mpp",
+  "created_at": "2026-11-06T07:41:38",
+  "description": "## [1.2.2](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.2.1...v1.2.2) (2026-11-06)\n\n\n### Bug Fixes\n\n* **pluto17:** also list 17.2.0-520000962 (the Android TV build) as a target ([838f4ec](https://github.com/AllGray/morphe-androidtv-patches/commit/838f4ece7f5f1e6169bbb686038d798f280eb999))",
+  "download_url": "https://github.com/AllGray/morphe-androidtv-patches/releases/download/v1.2.2/patches-1.2.2.mpp",
   "signature_download_url": "",
-  "version": "1.2.1"
+  "version": "1.2.2"
 }

@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.2.1...v1.2.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **pluto17:** also list 17.2.0-520000962 (the Android TV build) as a target ([838f4ec](https://github.com/AllGray/morphe-androidtv-patches/commit/838f4ece7f5f1e6169bbb686038d798f280eb999))
+
 ## [1.2.1](https://github.com/AllGray/morphe-androidtv-patches/compare/v1.2.0...v1.2.1) (2026-11-01)
 
 
